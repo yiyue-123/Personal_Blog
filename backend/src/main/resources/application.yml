@@ -1,0 +1,40 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: personal-blog-backend
+  datasource:
+    url: jdbc:mysql://localhost:3306/personal_blog?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai
+    username: root
+    password: 123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+  data:
+    redis:
+      host: localhost
+      port: 6379
+    elasticsearch:
+      repositories:
+        enabled: false
+  cache:
+    type: redis
+
+mybatis-plus:
+  configuration:
+    map-underscore-to-camel-case: true
+  global-config:
+    db-config:
+      id-type: auto
+
+knife4j:
+  enable: true
+
+blog:
+  jwt:
+    secret: change-me-to-a-very-long-secret-key-1234567890
+    expire-seconds: 86400
+    issuer: personal-blog
+  admin:
+    username: admin
+    password: admin123456
+    nickname: Administrator
