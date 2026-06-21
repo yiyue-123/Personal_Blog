@@ -21,8 +21,11 @@ public class ArticleCreateRequest {
     @Size(max = 500)
     private String summary;
 
-    @NotNull
     private Long categoryId;
+
+    @NotBlank
+    @Size(max = 50)
+    private String categoryName;
 
     @NotEmpty
     private List<String> tags;

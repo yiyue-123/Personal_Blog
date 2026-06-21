@@ -15,6 +15,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -39,16 +40,37 @@ public class CommentServiceImpl implements CommentService {
             comments.stream().map(Comment::getUserId).collect(Collectors.toSet())
         );
 
-        Map<Long, List<CommentDTO>> replyMap = comments.stream()
-            .filter(comment -> comment.getParentId() != null)
-            .map(comment -> toDto(comment, userMap))
-            .collect(Collectors.groupingBy(CommentDTO::getParentId));
+        Map<Long, Comment> commentMap = comments.stream()
+            .collect(Collectors.toMap(Comment::getId, comment -> comment));
+        Map<Long, CommentDTO> dtoMap = new HashMap<>();
+        List<CommentDTO> roots = new ArrayList<>();
 
-        return comments.stream()
-            .filter(comment -> comment.getParentId() == null)
-            .map(comment -> toDto(comment, userMap))
-            .peek(root -> root.setReplies(replyMap.getOrDefault(root.getId(), new ArrayList<>())))
-            .toList();
+        for (Comment comment : comments) {
+            dtoMap.put(comment.getId(), toDto(comment, userMap));
+        }
+
+        for (Comment comment : comments) {
+            CommentDTO dto = dtoMap.get(comment.getId());
+            if (comment.getParentId() == null) {
+                roots.add(dto);
+                continue;
+            }
+
+            Comment parent = commentMap.get(comment.getParentId());
+            if (parent == null) {
+                roots.add(dto);
+                continue;
+            }
+
+            dto.setReplyToUser(userMap.get(parent.getUserId()));
+            Long rootId = findRootId(parent, commentMap);
+            CommentDTO rootDto = dtoMap.get(rootId);
+            if (rootDto != null) {
+                rootDto.getReplies().add(dto);
+            }
+        }
+
+        return roots;
     }
 
     @Override
@@ -65,7 +87,14 @@ public class CommentServiceImpl implements CommentService {
         commentMapper.insert(comment);
 
         Map<Long, UserSimpleDTO> userMap = userService.getSimpleProfiles(List.of(userId));
-        return toDto(comment, userMap);
+        CommentDTO dto = toDto(comment, userMap);
+        if (request.getParentId() != null) {
+            Comment parent = commentMapper.selectById(request.getParentId());
+            if (parent != null) {
+                dto.setReplyToUser(userService.getSimpleProfiles(List.of(parent.getUserId())).get(parent.getUserId()));
+            }
+        }
+        return dto;
     }
 
     private CommentDTO toDto(Comment comment, Map<Long, UserSimpleDTO> userMap) {
@@ -79,5 +108,17 @@ public class CommentServiceImpl implements CommentService {
             .createTime(comment.getCreateTime())
             .replies(new ArrayList<>())
             .build();
+    }
+
+    private Long findRootId(Comment comment, Map<Long, Comment> commentMap) {
+        Comment current = comment;
+        while (current.getParentId() != null) {
+            Comment parent = commentMap.get(current.getParentId());
+            if (parent == null) {
+                break;
+            }
+            current = parent;
+        }
+        return current.getId();
     }
 }

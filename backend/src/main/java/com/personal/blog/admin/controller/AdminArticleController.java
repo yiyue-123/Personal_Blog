@@ -13,6 +13,9 @@ import com.personal.blog.article.service.CategoryService;
 import com.personal.blog.article.service.TagService;
 import com.personal.blog.common.Result;
 import com.personal.blog.infra.security.BlogUserDetails;
+import com.personal.blog.user.dto.RegisterApplicationDTO;
+import com.personal.blog.user.dto.RegisterApplicationReviewRequest;
+import com.personal.blog.user.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -38,6 +41,7 @@ public class AdminArticleController {
     private final CategoryService categoryService;
     private final TagService tagService;
     private final AdminService adminService;
+    private final UserService userService;
 
     @PostMapping("/articles")
     public Result<ArticleDTO> create(@Valid @RequestBody ArticleCreateRequest request,
@@ -53,14 +57,42 @@ public class AdminArticleController {
     }
 
     @DeleteMapping("/articles/{id}")
-    public Result<Void> delete(@PathVariable Long id) {
-        articleService.deleteArticle(id);
+    public Result<Void> delete(@PathVariable Long id,
+                               @AuthenticationPrincipal BlogUserDetails userDetails) {
+        articleService.deleteArticle(id, userDetails.getUserId(), true);
         return Result.success();
     }
 
     @GetMapping("/dashboard")
     public Result<AdminDashboardDTO> dashboard() {
         return Result.success(adminService.dashboard());
+    }
+
+    @GetMapping("/register-applications")
+    public Result<List<RegisterApplicationDTO>> registerApplications(Integer status) {
+        return Result.success(userService.listRegisterApplications(status));
+    }
+
+    @GetMapping("/register-applications/{id}")
+    public Result<RegisterApplicationDTO> registerApplicationDetail(@PathVariable Long id) {
+        return Result.success(userService.getRegisterApplication(id));
+    }
+
+    @PostMapping("/register-applications/{id}/approve")
+    public Result<RegisterApplicationDTO> approveRegisterApplication(
+        @PathVariable Long id,
+        @AuthenticationPrincipal BlogUserDetails userDetails,
+        @RequestBody(required = false) RegisterApplicationReviewRequest request) {
+        String reviewReason = request == null ? null : request.getReviewReason();
+        return Result.success(userService.approveRegisterApplication(id, userDetails.getUserId(), reviewReason));
+    }
+
+    @PostMapping("/register-applications/{id}/reject")
+    public Result<RegisterApplicationDTO> rejectRegisterApplication(
+        @PathVariable Long id,
+        @AuthenticationPrincipal BlogUserDetails userDetails,
+        @Valid @RequestBody RegisterApplicationReviewRequest request) {
+        return Result.success(userService.rejectRegisterApplication(id, userDetails.getUserId(), request));
     }
 
     @GetMapping("/categories")

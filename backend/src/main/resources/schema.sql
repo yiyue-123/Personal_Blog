@@ -14,6 +14,22 @@ CREATE TABLE IF NOT EXISTS t_user (
     update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS t_user_register_application (
+    id BIGINT PRIMARY KEY AUTO_INCREMENT,
+    username VARCHAR(50) NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    nickname VARCHAR(50) NULL,
+    avatar VARCHAR(255) NULL,
+    status TINYINT NOT NULL DEFAULT 0 COMMENT '0待审批 1已通过 2已拒绝',
+    review_reason VARCHAR(255) NULL,
+    review_by BIGINT NULL,
+    review_time DATETIME NULL,
+    create_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    update_time DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    INDEX idx_username_status (username, status),
+    INDEX idx_status_create (status, create_time)
+);
+
 CREATE TABLE IF NOT EXISTS t_article (
     id BIGINT PRIMARY KEY AUTO_INCREMENT,
     title VARCHAR(200) NOT NULL,

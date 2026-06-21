@@ -11,10 +11,12 @@ import java.util.List;
 public class ArticleListItemDTO {
 
     private Long id;
+    private Long userId;
     private String title;
     private String summary;
     private Long categoryId;
     private String categoryName;
+    private Integer status;
     private Integer viewCount;
     private List<TagDTO> tags;
     private LocalDateTime createTime;

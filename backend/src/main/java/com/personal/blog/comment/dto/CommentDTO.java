@@ -17,6 +17,7 @@ public class CommentDTO {
     private Long parentId;
     private String content;
     private UserSimpleDTO user;
+    private UserSimpleDTO replyToUser;
     private LocalDateTime createTime;
     private List<CommentDTO> replies;
 }

@@ -11,9 +11,11 @@ import com.personal.blog.article.dto.TagDTO;
 import com.personal.blog.article.entity.Article;
 import com.personal.blog.article.entity.ArticleTag;
 import com.personal.blog.article.entity.Category;
+import com.personal.blog.article.entity.Tag;
 import com.personal.blog.article.mapper.ArticleMapper;
 import com.personal.blog.article.mapper.ArticleTagMapper;
 import com.personal.blog.article.mapper.CategoryMapper;
+import com.personal.blog.article.mapper.TagMapper;
 import com.personal.blog.article.service.ArticleService;
 import com.personal.blog.article.service.CategoryService;
 import com.personal.blog.article.service.TagService;
@@ -42,16 +44,47 @@ public class ArticleServiceImpl implements ArticleService {
     private final ArticleMapper articleMapper;
     private final CategoryMapper categoryMapper;
     private final ArticleTagMapper articleTagMapper;
+    private final TagMapper tagMapper;
     private final CategoryService categoryService;
     private final TagService tagService;
     private final XssFilter xssFilter;
 
     @Override
-    public PageResult<ArticleListItemDTO> listPublishedArticles(long page, long pageSize) {
+    public PageResult<ArticleListItemDTO> listPublishedArticles(String tagName, long page, long pageSize) {
+        LambdaQueryWrapper<Article> queryWrapper = new LambdaQueryWrapper<Article>()
+            .eq(Article::getStatus, 2)
+            .orderByDesc(Article::getCreateTime);
+
+        if (tagName != null && !tagName.isBlank()) {
+            Tag tag = tagMapper.selectOne(new LambdaQueryWrapper<Tag>().eq(Tag::getName, tagName.trim()));
+            if (tag == null) {
+                return new PageResult<ArticleListItemDTO>(0L, page, pageSize, Collections.emptyList());
+            }
+
+            List<Long> articleIds = articleTagMapper.selectList(
+                    new LambdaQueryWrapper<ArticleTag>().eq(ArticleTag::getTagId, tag.getId())
+                ).stream()
+                .map(ArticleTag::getArticleId)
+                .distinct()
+                .toList();
+
+            if (articleIds.isEmpty()) {
+                return new PageResult<ArticleListItemDTO>(0L, page, pageSize, Collections.emptyList());
+            }
+
+            queryWrapper.in(Article::getId, articleIds);
+        }
+
+        Page<Article> articlePage = articleMapper.selectPage(new Page<>(page, pageSize), queryWrapper);
+        return new PageResult<>(articlePage.getTotal(), page, pageSize, buildListItems(articlePage.getRecords()));
+    }
+
+    @Override
+    public PageResult<ArticleListItemDTO> listUserArticles(Long userId, long page, long pageSize) {
         Page<Article> articlePage = articleMapper.selectPage(
             new Page<>(page, pageSize),
             new LambdaQueryWrapper<Article>()
-                .eq(Article::getStatus, 2)
+                .eq(Article::getUserId, userId)
                 .orderByDesc(Article::getCreateTime)
         );
         return new PageResult<>(articlePage.getTotal(), page, pageSize, buildListItems(articlePage.getRecords()));
@@ -61,7 +94,7 @@ public class ArticleServiceImpl implements ArticleService {
     public ArticleDTO getArticleDetail(Long id) {
         Article article = articleMapper.selectById(id);
         if (article == null) {
-            throw new BusinessException("文章不存在");
+            throw new BusinessException("?????");
         }
         return toDetail(article);
     }
@@ -100,13 +133,13 @@ public class ArticleServiceImpl implements ArticleService {
     @Override
     @Transactional
     public ArticleDTO createArticle(Long operatorUserId, ArticleCreateRequest request) {
-        validateCategory(request.getCategoryId());
+        Long categoryId = resolveCategoryId(request);
 
         Article article = new Article();
         article.setTitle(xssFilter.cleanPlainText(request.getTitle()));
         article.setContent(request.getContent());
         article.setSummary(xssFilter.cleanPlainText(request.getSummary()));
-        article.setCategoryId(request.getCategoryId());
+        article.setCategoryId(categoryId);
         article.setUserId(operatorUserId);
         article.setStatus(request.getStatus());
         article.setViewCount(0);
@@ -121,14 +154,15 @@ public class ArticleServiceImpl implements ArticleService {
     public ArticleDTO updateArticle(Long id, Long operatorUserId, ArticleCreateRequest request) {
         Article article = articleMapper.selectById(id);
         if (article == null) {
-            throw new BusinessException("文章不存在");
+            throw new BusinessException("?????");
         }
+        ensureAuthor(article, operatorUserId);
 
-        validateCategory(request.getCategoryId());
+        Long categoryId = resolveCategoryId(request);
         article.setTitle(xssFilter.cleanPlainText(request.getTitle()));
         article.setContent(request.getContent());
         article.setSummary(xssFilter.cleanPlainText(request.getSummary()));
-        article.setCategoryId(request.getCategoryId());
+        article.setCategoryId(categoryId);
         article.setUserId(operatorUserId);
         article.setStatus(request.getStatus());
         articleMapper.updateById(article);
@@ -141,9 +175,22 @@ public class ArticleServiceImpl implements ArticleService {
     @Transactional
     public void deleteArticle(Long id) {
         if (articleMapper.deleteById(id) == 0) {
-            throw new BusinessException("文章不存在");
+            throw new BusinessException("?????");
         }
         articleTagMapper.delete(new LambdaQueryWrapper<ArticleTag>().eq(ArticleTag::getArticleId, id));
+    }
+
+    @Override
+    @Transactional
+    public void deleteArticle(Long id, Long operatorUserId, boolean admin) {
+        Article article = articleMapper.selectById(id);
+        if (article == null) {
+            throw new BusinessException("?????");
+        }
+        if (!admin) {
+            ensureAuthor(article, operatorUserId);
+        }
+        deleteArticle(id);
     }
 
     @Override
@@ -205,16 +252,24 @@ public class ArticleServiceImpl implements ArticleService {
             Category category = categoryMap.get(article.getCategoryId());
             result.add(ArticleListItemDTO.builder()
                 .id(article.getId())
+                .userId(article.getUserId())
                 .title(article.getTitle())
                 .summary(article.getSummary())
                 .categoryId(article.getCategoryId())
                 .categoryName(category == null ? null : category.getName())
+                .status(article.getStatus())
                 .viewCount(article.getViewCount())
                 .tags(tagMap.getOrDefault(article.getId(), Collections.emptyList()))
                 .createTime(article.getCreateTime())
                 .build());
         }
         return result;
+    }
+
+    private void ensureAuthor(Article article, Long operatorUserId) {
+        if (operatorUserId == null || !operatorUserId.equals(article.getUserId())) {
+            throw new BusinessException("??????????");
+        }
     }
 
     private void replaceArticleTags(Long articleId, List<String> tagNames) {
@@ -228,9 +283,11 @@ public class ArticleServiceImpl implements ArticleService {
         }
     }
 
-    private void validateCategory(Long categoryId) {
-        if (!categoryService.existsById(categoryId)) {
-            throw new BusinessException("分类不存在");
+    private Long resolveCategoryId(ArticleCreateRequest request) {
+        if (request.getCategoryId() != null && categoryService.existsById(request.getCategoryId())) {
+            return request.getCategoryId();
         }
+
+        return categoryService.getOrCreateCategory(request.getCategoryName()).getId();
     }
 }

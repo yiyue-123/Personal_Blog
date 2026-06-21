@@ -11,6 +11,8 @@ public interface CategoryService {
 
     boolean existsById(Long categoryId);
 
+    CategoryDTO getOrCreateCategory(String categoryName);
+
     CategoryDTO createCategory(CategoryCreateRequest request);
 
     CategoryDTO updateCategory(Long id, CategoryCreateRequest request);

@@ -12,7 +12,9 @@ import java.util.List;
 
 public interface ArticleService {
 
-    PageResult<ArticleListItemDTO> listPublishedArticles(long page, long pageSize);
+    PageResult<ArticleListItemDTO> listPublishedArticles(String tagName, long page, long pageSize);
+
+    PageResult<ArticleListItemDTO> listUserArticles(Long userId, long page, long pageSize);
 
     ArticleDTO getArticleDetail(Long id);
 
@@ -25,6 +27,8 @@ public interface ArticleService {
     ArticleDTO updateArticle(Long id, Long operatorUserId, ArticleCreateRequest request);
 
     void deleteArticle(Long id);
+
+    void deleteArticle(Long id, Long operatorUserId, boolean admin);
 
     boolean existsById(Long articleId);
 

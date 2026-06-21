@@ -14,4 +14,5 @@ public class AdminDashboardDTO {
     private Long userCount;
     private Long categoryCount;
     private Long tagCount;
+    private Long pendingRegisterApplicationCount;
 }

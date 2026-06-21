@@ -12,7 +12,9 @@ import com.personal.blog.article.mapper.TagMapper;
 import com.personal.blog.comment.entity.Comment;
 import com.personal.blog.comment.mapper.CommentMapper;
 import com.personal.blog.infra.xss.XssFilter;
+import com.personal.blog.user.entity.RegisterApplication;
 import com.personal.blog.user.entity.User;
+import com.personal.blog.user.mapper.RegisterApplicationMapper;
 import com.personal.blog.user.mapper.UserMapper;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -29,6 +31,7 @@ public class AdminServiceImpl implements AdminService {
     private final TagMapper tagMapper;
     private final PasswordEncoder passwordEncoder;
     private final XssFilter xssFilter;
+    private final RegisterApplicationMapper registerApplicationMapper;
 
     @Override
     public AdminDashboardDTO dashboard() {
@@ -42,6 +45,11 @@ public class AdminServiceImpl implements AdminService {
             .userCount(userMapper.selectCount(null))
             .categoryCount(categoryMapper.selectCount(new LambdaQueryWrapper<Category>()))
             .tagCount(tagMapper.selectCount(new LambdaQueryWrapper<Tag>()))
+            .pendingRegisterApplicationCount(
+                registerApplicationMapper.selectCount(
+                    new LambdaQueryWrapper<RegisterApplication>().eq(RegisterApplication::getStatus, 0)
+                )
+            )
             .build();
     }
 

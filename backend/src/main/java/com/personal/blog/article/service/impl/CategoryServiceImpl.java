@@ -36,6 +36,27 @@ public class CategoryServiceImpl implements CategoryService {
     }
 
     @Override
+    public CategoryDTO getOrCreateCategory(String categoryName) {
+        String normalizedName = xssFilter.cleanPlainText(categoryName == null ? "" : categoryName.trim());
+        if (normalizedName.isBlank()) {
+            throw new BusinessException("分类名称不能为空");
+        }
+
+        Category existing = categoryMapper.selectOne(new LambdaQueryWrapper<Category>()
+            .eq(Category::getName, normalizedName)
+            .last("limit 1"));
+        if (existing != null) {
+            return toDto(existing);
+        }
+
+        Category category = new Category();
+        category.setName(normalizedName);
+        category.setSort(0);
+        categoryMapper.insert(category);
+        return toDto(category);
+    }
+
+    @Override
     public CategoryDTO createCategory(CategoryCreateRequest request) {
         ensureNameUnique(request.getName(), null);
         Category category = new Category();
